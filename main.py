@@ -3,39 +3,14 @@ import os
 import random
 import xml.etree.ElementTree as ET
 import shutil
-
 import cv2
-import joblib as jb
 import numpy as np
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import accuracy_score
 
-def accuracyScore(labels,pred):
-    print(accuracy_score(labels,pred))
-
-def readText():
-    data=[]
-    with open('../samples.txt') as f:
-        comand=f.readline()
-        countFiles=f.readline()
-        for i in range(int(countFiles)):
-            fileName=f.readline()
-            countBndbox=f.readline()
-            for i in range(int(countBndbox)):
-                bndbox=f.readline()
-                bnd=[int(bndbox.split(' ')[0]),int(bndbox.split(' ')[1]),
-                            int(bndbox.split(' ')[2]),int(bndbox.split(' ')[3])]
-                data.append({'name':fileName.split('\n')[0],'bndbox':bnd,
-                             'classId':bndbox.split(' ')[4].split('\n')[0]})
-    return data
-def compareData(dataFromTxt,pred):
-    labels=[]
-    for dict in dataFromTxt:
-        labels.append(dict['classId'])
-    print(accuracy_score(labels,pred))
 
 
-def loadAndSplit(file_path,file_path_2):
+def loadAndSplit(file_path,file_path_2):  #file_path: path to annotations files, file_path2: path to images files
 
     list_names = os.listdir(file_path)
 
@@ -48,12 +23,11 @@ def loadAndSplit(file_path,file_path_2):
         root=tree.getroot()
         file_name=root[1].text
         for child in root.iter('object'):
-            for bndbox in child.iter("bndbox"):
-                if child[0].text=='speedlimit':
-                    countOfSpeedlimit+=1
-                else:
-                    child[0].text='other'
-                inf.append(child[0].text)
+            if child[0].text=='speedlimit':
+                countOfSpeedlimit+=1
+            else:
+                child[0].text='other'
+            inf.append(child[0].text)
         information.append([file_name,each, inf])
     countOfOther=allphoto-countOfSpeedlimit
     countOfOther_1=0
@@ -91,13 +65,13 @@ def load_ClassIdAndCropPhoto(annotations_path,photo_path):
                 if child[0].text == 'speedlimit':
                     class_id='speedlimit'
                     if int(bndbox[0].text)>1 and int(bndbox[1].text)>1:
-                        for i in range(1):
+                        for i in range(5):
                             xmin = random.randrange(0, int(bndbox[0].text)-1, 1)
                             xmax = random.randrange(xmin+1, int(bndbox[0].text), 1)
                             ymin = random.randrange(0, int(bndbox[1].text)-1, 1)
                             ymax = random.randrange(ymin+1, int(bndbox[1].text), 1)
                             img=cv2.imread(photo_path+file_name)[ymin:ymax,xmin:xmax]
-                            if xmax-xmin>30 and ymax-ymin>30:
+                            if xmax-xmin>1 and ymax-ymin>1:
                                 data.append({'image':img,'label':'other'})
                 else:
                     class_id='other'
@@ -108,7 +82,7 @@ def load_ClassIdAndCropPhoto(annotations_path,photo_path):
 
 def boVW(data):
     sift = cv2.SIFT_create()
-    dict_size = 128
+    dict_size = 500#128
     bow = cv2.BOWKMeansTrainer(dict_size)
     for dict in data:
         kp, des = sift.detectAndCompute(dict['image'], None)
@@ -142,14 +116,14 @@ def train(data):
             X.append(dict['data'][0])
             y.append(dict['label'])
         except:
-            X.append(np.zeros(128))
+            X.append(np.zeros(500))
             y.append('other')
 
     clf=RandomForestClassifier(n_estimators=1000)
     clf.fit(X,y)
     return clf
 
-def predict(clf,data_test): #bndbox
+def predict(clf,data_test):
     labels=[]
     X_data=[]
     for dict in data_test:
@@ -157,25 +131,10 @@ def predict(clf,data_test): #bndbox
             X_data.append(dict['data'][0])
             labels.append(dict['label'])
         except:
-            X_data.append(np.zeros(128))
+            X_data.append(np.zeros(500))
             labels.append('other')
-    pred=clf.predict_proba(X_data)
-    #print(clf.predict(X_data))
-    #print(pred)
-    #print(clf.predict(X_data))
-    #probTrue=[]
-    #i=0
-    #for p in range(len(pred)-1):
-    #    #print(data_test[p])
-    #    probTrue.append(pred[p][1])
-    #print(max(probTrue))
-    #idx, max_value= max(probTrue, key=lambda item: item[1])
-    #print(max_value,idx)
-    #print(accuracyScore(labels,clf.predict(X_data)))
+
     return clf.predict(X_data)
-
-
-
 
 def classification(vocabulary,clf):
     file_path='../test/images/'
@@ -189,33 +148,27 @@ def classification(vocabulary,clf):
         for n in range(int(n_pictures)):
             xmin, xmax, ymin, ymax = [int(x) for x in input('').split(' ')]
             img = cv2.imread(file_path+file_name)[int(ymin):int(ymax),int(xmin):int(xmax)]
-            #cv2.imshow('image',img)
-            #cv2.waitKey(0)
             data.append({'image': img, 'label': None})
 
     data=extractingFeautres(vocabulary,data)
-    predict_=[]
-    predict_.append(predict(clf,data))
-    #predict_[0])
-    compareData(readText(),predict_[0])
+    pred=predict(clf,data)
+    for i in pred:
+        print(i)
+
+    #compareData(readText(),pred)
 
 
 
 
 data_train=load_ClassIdAndCropPhoto('../train/annotations/','../train/images/')
-#data_test=load_ClassIdAndCropPhoto('../test/annotations/','../test/images/')
-#data_test=load_Photo('/images/')
-#data_test=load_CropPhoto('/annotations/','/images/')
-#data_test=load_ClassIdAndPhoto('/annotations/','/images/')
+
 vocabulary=boVW(data_train)
-#np.save('voc.npy',vocabulary)
+
 clf=train(extractingFeautres(vocabulary,data_train))
-#jb.dump(clf, "clf.pkl", compress=3)
-#predict(clf,extractingFeautres(vocabulary,data_test))
+
 command = input()
 if command == 'classify':
     classification(vocabulary,clf)
-#load_Photo('../images/')
 
 
 
@@ -253,7 +206,6 @@ def load_Photo(photo_path):
     data = []
     for each in list_names:
         img=cv2.imread(photo_path+each)
-
         if detect(img)>0.1:
             print(each)
         #detect(img)
@@ -286,8 +238,8 @@ def detect(image):
     sq_height = int(height / scale)
     sq_width = int(width / scale)
     ilosc_iteracji = 0
-    stepMove = 1
-    data = []
+    stepMove = 0.5
+
     for w in range(scale - 1):
         add_height += sq_height
         for s in range(scale - 1):
@@ -296,15 +248,17 @@ def detect(image):
             tmp_h = 0
             tmp_w = 0
             while True:
+                data = []
                 xmin=0 + add_width - tmp_w
                 xmax=sq_width + add_width + tmp_w
                 ymin=0 + add_height - tmp_h
                 ymax=sq_height + add_height + tmp_h
                 img = image[ymin:ymax,xmin:xmax]
                 data.append({'image': img, 'label': None, 'bndbox':[xmin,xmax,ymin,ymax]})
-                #cv2.imshow('s', image)[304:342,360:400]
-                #cv2.waitKey(0)
-                #cv2.destroyAllWindows()
+                print(predict(clf,extractingFeautres(vocabulary,data)))
+                cv2.imshow('s', img)
+                cv2.waitKey(0)
+                cv2.destroyAllWindows()
                 ilosc_iteracji += 1
                 a += stepMove
                 if w - a < 0 or s - a < 0 or w + a > scale - 2 or s + a > scale - 2:
@@ -332,6 +286,31 @@ def detect(image):
     #print(ile / len(d))
     return (ile / len(d))
 
+def accuracyScore(labels,pred):
+    print(accuracy_score(labels,pred))
+
+def readText():
+    data=[]
+    with open('../samples.txt') as f:
+        comand=f.readline()
+        countFiles=f.readline()
+        for i in range(int(countFiles)):
+            fileName=f.readline()
+            countBndbox=f.readline()
+            for i in range(int(countBndbox)):
+                bndbox=f.readline()
+                bnd=[int(bndbox.split(' ')[0]),int(bndbox.split(' ')[1]),
+                            int(bndbox.split(' ')[2]),int(bndbox.split(' ')[3])]
+                data.append({'name':fileName.split('\n')[0],'bndbox':bnd,
+                             'classId':bndbox.split(' ')[4].split('\n')[0]})
+    return data
+def compareData(dataFromTxt,pred):
+    labels=[]
+    for dict in dataFromTxt:
+        labels.append(dict['classId'])
+    print(accuracy_score(labels,pred))
 
 
 
+
+#load_Photo('../test/images/')
