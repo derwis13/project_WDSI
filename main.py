@@ -8,6 +8,22 @@ import numpy as np
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import accuracy_score
 
+# TODO Jakość kodu i raport (4/4)
+
+
+# TODO Skuteczność klasyfikacji 0.962 (4/4)
+# TODO [0.00, 0.50) - 0.0
+# TODO [0.50, 0.55) - 0.5
+# TODO [0.55, 0.60) - 1.0
+# TODO [0.60, 0.65) - 1.5
+# TODO [0.65, 0.70) - 2.0
+# TODO [0.70, 0.75) - 2.5
+# TODO [0.75, 0.80) - 3.0
+# TODO [0.80, 0.85) - 3.5
+# TODO [0.85, 1.00) - 4.0
+
+
+# TODO Skuteczność detekcji (/2)
 
 
 def loadAndSplit(file_path,file_path_2):  #file_path: path to annotations files, file_path2: path to images files
@@ -116,6 +132,7 @@ def train(data):
             X.append(dict['data'][0])
             y.append(dict['label'])
         except:
+            # TODO Lepiej w ogole pominac takie przypadki.
             X.append(np.zeros(500))
             y.append('other')
 
